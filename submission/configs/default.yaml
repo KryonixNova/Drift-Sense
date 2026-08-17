@@ -1,0 +1,44 @@
+# Default localizer configuration.
+#
+# This is a human-readable snapshot of `LocalizerConfig`'s defaults
+# (src/localizer/config.py) -- the dataclass in that file is the source of
+# truth actually read by the code (train.py, model.py, decode.py, etc.);
+# this file documents the same values for reference and for anyone
+# reproducing a run without reading Python. `model/production_v3/best.pt`
+# was trained with these values, except `peak_tie_ratio`, which was
+# recalibrated post-hoc per checkpoint by scripts/calibrate_tie_ratio.py
+# (see model/production_v3/tie_ratio.json if present, else the value below
+# is the un-calibrated default).
+
+# -- architecture --
+encoder_stride: 4
+corr_channels: 128
+context_channels: 64
+context_dilations: [1, 2, 4, 8, 16, 32, 64, 1, 1]
+
+# -- target / loss shaping --
+heatmap_sigma_cells: 2.0
+lambda_offset: 1.0
+lambda_hard_negative: 0.5
+hard_negative_radius_cells: 24
+focal_alpha: 2.0
+focal_beta: 4.0
+
+# -- decode --
+peak_tie_ratio: 0.98
+nms_kernel: 3
+
+# -- optimization --
+lr: 0.001
+weight_decay: 0.0001
+batch_size: 8
+max_steps: 40000
+
+# -- dataset seed ranges (on-the-fly generation, see src/localizer/data.py) --
+train_seed_lo: 0
+train_seed_hi: 100000
+val_seed_lo: 100000
+val_seed_hi: 100500
+test_seed_lo: 200000
+test_seed_hi: 200500
+crops_per_canvas: 100
