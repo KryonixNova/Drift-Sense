@@ -1,6 +1,6 @@
 <div align="center">
 
-# KryonixNova
+# Drift-Sense
 
 ### Synthetic SEM data generation + deep-learned reference localization for wafer inspection
 
@@ -13,7 +13,7 @@ Drift-Sense — AI-Powered Navigation-Error Recovery for Wafer Inspection Tools*
 ![KLayout](https://img.shields.io/badge/KLayout-GDS-informational)
 ![Hackathon](https://img.shields.io/badge/SEMI%20x%20IESA-Hackathon%202026-orange)
 
-[Problem statement](docs/problem-statement.pdf) · [Presentation](solution_presentation.pdf) · [Results](results/validation_report.md)
+[Results](results/validation_report.md) · [Research notes](research/README.md)
 
 </div>
 
@@ -27,13 +27,12 @@ synthetic DRAM SEM imagery to train on, and a deep-learned model that finds
 a small reference patch inside a much larger, differently-imaged search
 frame.
 
-Two independent pieces of prior work are consolidated here into one
-submission:
+Two independent pieces of work are consolidated here into one submission:
 
 | Folder | What it is |
 |---|---|
-| [`afb_generator/`](afb_generator/) | AFB's procedural DRAM SEM image generator — GDS-style layout, SEM-style rasterization, imaging-noise pipeline. Generator-only (no matcher/localizer code). |
-| [`puthere/`](puthere/) | puthere's own SEM image generator, plus its deep-learned reference-localization model — training, inference, and evaluation, all in one self-contained package. |
+| [`Team_fab_genr/`](Team_fab_genr/) | Procedural DRAM SEM image generator — GDS-style layout, SEM-style rasterization, imaging-noise pipeline. Generator-only (no matcher/localizer code). |
+| [`Model/`](Model/) | A separate SEM image generator, plus a deep-learned reference-localization model — training, inference, and evaluation, all in one self-contained package. |
 
 ## Contents
 
@@ -41,10 +40,9 @@ submission:
 - [Results at a glance](#results-at-a-glance)
 - [Repository structure](#repository-structure)
 - [Getting started](#getting-started)
-  - [AFB's generator](#running-the-afb-generator)
-  - [puthere's generator and localizer](#running-the-puthere-generator-and-localizer)
+  - [Running Team_fab_genr's generator](#running-team_fab_genrs-generator)
+  - [Running Model's generator and localizer](#running-models-generator-and-localizer)
 - [Running the tests](#running-the-tests)
-- [Deliverables](#deliverables)
 - [Design notes](#design-notes)
 - [Citations](#citations)
 
@@ -81,7 +79,7 @@ which one is real. Decoding the resulting heatmap gives a predicted
 
 ## Results at a glance
 
-Validated against `puthere/checkpoints/production_v3` across four
+Validated against `Model/checkpoints/production_v3` across four
 noise x geometry conditions (200 samples pooled, see
 [`results/validation_report.md`](results/validation_report.md) for the
 full breakdown and reproduction steps):
@@ -112,24 +110,22 @@ full breakdown and reproduction steps):
 ## Repository structure
 
 ```
-KryonixNova/
-├── afb_generator/            AFB's SEM generator (GDS layout → rasterization → noise), generator-only
-├── puthere/                  puthere's SEM generator + deep-learned localizer, self-contained
+Drift-Sense/
+├── Team_fab_genr/            SEM generator (GDS layout → rasterization → noise), generator-only
+├── Model/                    SEM generator + deep-learned localizer, self-contained
 │   ├── src/                    generator infra (src/) + the model (src/localizer/)
-│   ├── scripts/                 train, predict, validate, calibrate, ablate
-│   └── checkpoints/              production_v3 (default) and production_v5 (reference)
-├── docs/                     problem statement + technical guides for both generators
+│   ├── scripts/                  train, predict, validate, calibrate, ablate
+│   └── checkpoints/                production_v3, the shipped model
 ├── research/                 annotated prior work backing the localization algorithm
 ├── results/                  sample dataset, predictions, spec-validation report
-├── solution_presentation.pptx / .pdf   the mandatory hackathon slide deck
 └── requirements.txt          union of both subsystems' dependencies
 ```
 
 Each subsystem is independent and self-contained, with its own
 `requirements.txt` and its own README going into full detail
-([`afb_generator/README.md`](afb_generator/README.md),
-[`puthere/README.md`](puthere/README.md)). The top-level
-`requirements.txt` is their union, for a single install covering both.
+([`Team_fab_genr/README.md`](Team_fab_genr/README.md),
+[`Model/README.md`](Model/README.md)). The top-level `requirements.txt`
+is their union, for a single install covering both.
 
 > **CUDA note:** `requirements.txt` pins `torch`/`torchvision` to CUDA
 > 13.0 builds (`+cu130`). For CPU-only or a different CUDA version, drop
@@ -139,22 +135,22 @@ Each subsystem is independent and self-contained, with its own
 
 ## Getting started
 
-### Running the AFB generator
+### Running Team_fab_genr's generator
 
 ```bash
-cd afb_generator
+cd Team_fab_genr
 pip install -r requirements.txt
 python generate_dataset.py --num-samples 20 --split train --output-dir ./output --seed 42
 ```
 
-See [`afb_generator/README.md`](afb_generator/README.md) for the six
+See [`Team_fab_genr/README.md`](Team_fab_genr/README.md) for the six
 density presets, multi-region dies, true-zoom rendering, and
 single-training-defect mode.
 
-### Running the puthere generator and localizer
+### Running Model's generator and localizer
 
 ```bash
-cd puthere
+cd Model
 pip install -r requirements.txt
 python generate_dataset.py --num-samples 20 --split test --output-dir ./output --seed 200000
 python localize.py --manifest ./output/manifest.csv --output ./predictions.csv
@@ -164,50 +160,25 @@ python localize.py --manifest ./output/manifest.csv --output ./predictions.csv
 trained on canvas seeds `[0, 100000)`, so this exercises the held-out test
 split rather than training data.)
 
-Two checkpoints ship in `puthere/checkpoints/`: **`production_v3`** is
-this submission's default — consistently accurate across every
-noise/geometry condition tested — and **`production_v5`** is kept for
-reference, a real-data specialist with a documented accuracy/robustness
-trade-off against v3. See [`puthere/README.md`](puthere/README.md) for
-the full results table, training lineage, evaluation methodology, and
-reproduction steps, plus `puthere/scripts/train.py` and
-`puthere/scripts/validation_report.py` for training and spec-compliance
-validation.
+See [`Model/README.md`](Model/README.md) for the full results table,
+training lineage, evaluation methodology, and reproduction steps, plus
+`Model/scripts/train.py` and `Model/scripts/validation_report.py` for
+training and spec-compliance validation.
 
 ## Running the tests
 
 ```bash
-cd afb_generator && python -m pytest tests/ -v            # 44 tests
-cd puthere        && python -m pytest tests/ -v -m "not slow"   # 121 passed, 15 deselected
+cd Team_fab_genr && python -m pytest tests/ -v
+cd Model         && python -m pytest tests/ -v -m "not slow"
 ```
-
-`puthere/tests/localizer/test_model.py::test_predictions_lie_inside_the_valid_range`
-is a known pre-existing flaky test (unseeded random weight init in the
-test itself, not a regression) — it fails intermittently under a
-full-suite run but passes in isolation, and reproduces identically in the
-original, untouched `puthere` development repository.
-
-## Deliverables
-
-- [`solution_presentation.pptx`](solution_presentation.pptx) /
-  [`.pdf`](solution_presentation.pdf) — the mandatory presentation
-  (Component 1 of the problem statement).
-- [`results/`](results/) — a sample generated dataset, predictions, and a
-  spec-validation report against `puthere/checkpoints/production_v3`
-  (Component 2's expected deliverables).
-- [`docs/`](docs/) — the official problem statement plus both source
-  projects' technical guides. AFB's guides describe the full original
-  pipeline including its SuperPoint+LightGlue matcher, which is **not**
-  included in `afb_generator/` here — see Design notes below.
 
 ## Design notes
 
-- **AFB's own SuperPoint+LightGlue matcher and RANSAC localizer are
-  intentionally not included.** puthere's deep-learned model is this
-  submission's one localization approach, so `afb_generator/` only
-  carries generation code and has no torch/lightglue dependency.
-- **puthere's generator and localizer ship together**, not split into
-  separate folders: puthere's training-time data loader
+- **`Team_fab_genr/` is generator-only.** No matcher or localizer code
+  lives there — `Model/`'s deep-learned model is this submission's one
+  localization approach, so `Team_fab_genr/` has no torch dependency.
+- **`Model/`'s generator and localizer ship together**, not split into
+  separate folders: its training-time data loader
   (`src/localizer/data.py`) generates samples on the fly by calling
   directly into the same `src/patterns/` / `src/presets.py` code its
   standalone `generate_dataset.py` CLI uses — splitting them would just
@@ -235,7 +206,3 @@ justify structures and augmentations against credible sources:
 **Data augmentation for scale/rotation robustness in matching tasks**
 - [An Efficient Deep Template Matching and In-Plane Pose Estimation Method via Template-Aware Dynamic Convolution](https://arxiv.org/html/2510.01678), arXiv
 - [Who Handles Orientation? Investigating Invariance in Feature Matching](https://arxiv.org/html/2604.11809v1), arXiv
-
-Full citation-to-code mapping: see `puthere`'s own development history
-(`references/CITATIONS.md` in the original `puthere` repo) for which
-specific parameter or function each source backs.
