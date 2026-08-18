@@ -124,6 +124,7 @@ def test_shifted_profile_uses_uniform_position_jitter_via_generate_canvas_bundle
     )
 
 
+import cv2
 import pytest
 import torch
 
@@ -274,9 +275,49 @@ def test_dataset_yields_batchable_items():
     cfg = LocalizerConfig(crops_per_canvas=2)
     it = iter(LocalizerDataset("val", cfg, shuffle_buffer_size=1))
     item = next(it)
-    assert set(item) == {"reference_img", "search_img", "gt_x", "gt_y", "canvas_seed"}
+    assert set(item) == {"reference_img", "search_img", "gt_x", "gt_y",
+                         "canvas_seed", "scale_ratio", "rotation_deg",
+                         "barrel_distortion_k"}
     assert item["reference_img"].shape == (1, 100, 100)
     assert item["search_img"].shape == (1, 1000, 1000)
+    # Every yielded value must be a tensor, or the default collate_fn cannot
+    # batch it -- these three are consumed by scripts/validation_report.py.
+    for key in ("scale_ratio", "rotation_deg", "barrel_distortion_k"):
+        assert item[key].shape == ()
+
+
+def test_dataset_yields_the_jitter_actually_applied_to_the_reference():
+    cfg = LocalizerConfig(crops_per_canvas=1, val_seed_lo=5, val_seed_hi=6)
+    item = next(iter(LocalizerDataset("val", cfg, shuffle_buffer_size=1,
+                                      geometric_profile="drift")))
+    expected = sample_pair(generate_canvas_bundle(5), 5, 0,
+                           geometric_profile="drift")
+    assert float(item["scale_ratio"]) == pytest.approx(expected["scale_ratio"])
+    assert float(item["rotation_deg"]) == pytest.approx(expected["rotation_deg"])
+
+
+def test_want_hires_reference_is_rng_neutral_and_natively_sampled():
+    """The 1000x1000 reference generate_dataset.py persists must be a true
+    100x capture, and asking for it must not perturb anything else."""
+    bundle = generate_canvas_bundle(5)
+    plain = sample_pair(bundle, 5, 0, geometric_profile="drift")
+    hires = sample_pair(bundle, 5, 0, geometric_profile="drift",
+                        want_hires_reference=True)
+
+    assert "reference_img_hires_u8" not in plain
+    assert np.array_equal(plain["reference_img_u8"], hires["reference_img_u8"])
+    for key in ("gt_x", "gt_y", "scale_ratio", "rotation_deg"):
+        assert plain[key] == hires[key]
+
+    hi = hires["reference_img_hires_u8"]
+    assert hi.shape == (1000, 1000) and hi.dtype == np.uint8
+    # A genuine 1 nm/px capture carries detail the 100x100 working view
+    # cannot; an upscale of that view would score about the same as it.
+    def detail(img):
+        return float(np.abs(cv2.Laplacian(img.astype(np.float32), cv2.CV_32F)).mean())
+    upscaled = cv2.resize(hires["reference_img_u8"], (1000, 1000),
+                          interpolation=cv2.INTER_CUBIC)
+    assert detail(hi) > 2.0 * detail(upscaled)
 
 
 def test_iter_shuffle_buffer_mixes_samples_from_multiple_canvases():

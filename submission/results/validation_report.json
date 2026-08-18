@@ -4,73 +4,271 @@
   "hardware": "NVIDIA GeForce RTX 5060 Ti",
   "python_version": "3.12.13 | packaged by Anaconda, Inc. | (main, Jul  9 2026, 14:38:16) [GCC 14.3.0]",
   "timing_method": "wall-clock via time.perf_counter() around the single call to model.predict(reference, search); excludes checkpoint/model loading (a one-time cost, reported separately as model_load_time_s) and PNG decode (not part of the localization algorithm itself)",
-  "model_load_time_s": 0.1477437049979926,
+  "model_load_time_s": 0.16121545500027423,
   "conditions": {
     "noise=normal_geom=normal": {
       "n": 50,
-      "mean_error_px": 0.6381747180063243,
-      "median_error_px": 0.5655050426374517,
-      "worst_error_px": 1.5566531681982132,
-      "p90_error_px": 1.0856687410087942,
-      "runtime_ms_mean": 29.83681847988919,
-      "runtime_ms_median": 21.9388399982563,
+      "mean_error_px": 0.9046883377914723,
+      "median_error_px": 0.7672256203399292,
+      "worst_error_px": 2.897460513859002,
+      "p90_error_px": 1.5438344199692922,
+      "runtime_ms_mean": 28.528630019936827,
+      "runtime_ms_median": 20.096032500077854,
       "pass_rate@5.0px": 1.0,
       "pass_rate@4.0px": 1.0,
-      "pass_rate@2.0px": 1.0,
-      "pass_rate@1.0px": 0.86
+      "pass_rate@2.0px": 0.92,
+      "pass_rate@1.0px": 0.66,
+      "pass_rate@0.5px": 0.32
     },
     "noise=harsh_geom=normal": {
       "n": 50,
-      "mean_error_px": 4.31642431711846,
-      "median_error_px": 3.593895503894971,
-      "worst_error_px": 16.51609803347261,
-      "p90_error_px": 8.701737566373605,
-      "runtime_ms_mean": 21.93847332011501,
-      "runtime_ms_median": 21.898944500208017,
-      "pass_rate@5.0px": 0.64,
-      "pass_rate@4.0px": 0.54,
-      "pass_rate@2.0px": 0.34,
-      "pass_rate@1.0px": 0.22
+      "mean_error_px": 42.5847808775364,
+      "median_error_px": 1.3655439083076488,
+      "worst_error_px": 856.7652390592311,
+      "p90_error_px": 8.214982290958849,
+      "runtime_ms_mean": 20.460559819985065,
+      "runtime_ms_median": 20.07946150024509,
+      "pass_rate@5.0px": 0.84,
+      "pass_rate@4.0px": 0.8,
+      "pass_rate@2.0px": 0.58,
+      "pass_rate@1.0px": 0.36,
+      "pass_rate@0.5px": 0.2
     },
     "noise=normal_geom=drift": {
       "n": 50,
-      "mean_error_px": 0.6693911903319296,
-      "median_error_px": 0.5854058968576057,
-      "worst_error_px": 1.922383599952712,
-      "p90_error_px": 1.4458544688092823,
-      "runtime_ms_mean": 21.99604964014725,
-      "runtime_ms_median": 22.008554498825106,
+      "mean_error_px": 0.8607175464974027,
+      "median_error_px": 0.6303451107757558,
+      "worst_error_px": 2.8278823362092362,
+      "p90_error_px": 1.560378135716265,
+      "runtime_ms_mean": 20.645996420207666,
+      "runtime_ms_median": 20.11981949908659,
       "pass_rate@5.0px": 1.0,
       "pass_rate@4.0px": 1.0,
-      "pass_rate@2.0px": 1.0,
-      "pass_rate@1.0px": 0.86
+      "pass_rate@2.0px": 0.94,
+      "pass_rate@1.0px": 0.64,
+      "pass_rate@0.5px": 0.28
     },
     "noise=harsh_geom=drift": {
       "n": 50,
-      "mean_error_px": 4.275605518823607,
-      "median_error_px": 3.4422793986506495,
-      "worst_error_px": 16.536170519292327,
-      "p90_error_px": 7.9491254063628105,
-      "runtime_ms_mean": 21.931615400098963,
-      "runtime_ms_median": 21.96021099916834,
-      "pass_rate@5.0px": 0.64,
-      "pass_rate@4.0px": 0.54,
-      "pass_rate@2.0px": 0.34,
-      "pass_rate@1.0px": 0.22
+      "mean_error_px": 27.078941534801164,
+      "median_error_px": 1.3512267895347163,
+      "worst_error_px": 856.7516191178696,
+      "p90_error_px": 8.23007949236177,
+      "runtime_ms_mean": 20.80948326001817,
+      "runtime_ms_median": 20.168282499980705,
+      "pass_rate@5.0px": 0.84,
+      "pass_rate@4.0px": 0.82,
+      "pass_rate@2.0px": 0.58,
+      "pass_rate@1.0px": 0.36,
+      "pass_rate@0.5px": 0.24
     }
   },
   "pooled": {
     "n_total": 200,
-    "mean_error_px": 2.47489893607008
+    "mean_error_px": 17.85728207415661,
+    "median_error_px": 0.9869641917872976,
+    "gross_failure_threshold_px": 50.0,
+    "n_gross_failures": 5,
+    "gross_failure_rate": 0.025,
+    "mean_error_px_excluding_gross_failures": 1.7578274144934587
+  },
+  "stratified": {
+    "by_target_position": {
+      "note": "all conditions; distance from target centre to nearest search-image border",
+      "buckets": {
+        "edge (<150px)": {
+          "n": 76,
+          "mean_error_px": 45.046280085818395,
+          "median_error_px": 1.4095885506864945,
+          "worst_error_px": 856.7652390592311,
+          "pass_rate@5.0px": 0.8157894736842105,
+          "pass_rate@4.0px": 0.7894736842105263,
+          "pass_rate@2.0px": 0.5921052631578947,
+          "pass_rate@1.0px": 0.35526315789473684,
+          "pass_rate@0.5px": 0.21052631578947367
+        },
+        "mid (150-300px)": {
+          "n": 76,
+          "mean_error_px": 1.5658643131197647,
+          "median_error_px": 1.1316919479319762,
+          "worst_error_px": 9.806282106990356,
+          "pass_rate@5.0px": 0.9736842105263158,
+          "pass_rate@4.0px": 0.9605263157894737,
+          "pass_rate@2.0px": 0.7631578947368421,
+          "pass_rate@1.0px": 0.40789473684210525,
+          "pass_rate@0.5px": 0.21052631578947367
+        },
+        "centre (>=300px)": {
+          "n": 48,
+          "mean_error_px": 0.6027800106671334,
+          "median_error_px": 0.5302563898113914,
+          "worst_error_px": 1.4726197734028785,
+          "pass_rate@5.0px": 1.0,
+          "pass_rate@4.0px": 1.0,
+          "pass_rate@2.0px": 1.0,
+          "pass_rate@1.0px": 0.8958333333333334,
+          "pass_rate@0.5px": 0.4166666666666667
+        }
+      }
+    },
+    "by_scale_ratio": {
+      "note": "geometric_profile=drift only (nominal 10:1 elsewhere); reference magnification ratio, 9:1-11:1 sweep",
+      "buckets": {
+        "0.90-0.95": {
+          "n": 28,
+          "mean_error_px": 1.3098035546329452,
+          "median_error_px": 0.9037506184432215,
+          "worst_error_px": 4.856141579306313,
+          "pass_rate@5.0px": 1.0,
+          "pass_rate@4.0px": 0.9642857142857143,
+          "pass_rate@2.0px": 0.7142857142857143,
+          "pass_rate@1.0px": 0.5357142857142857,
+          "pass_rate@0.5px": 0.35714285714285715
+        },
+        "0.95-1.00": {
+          "n": 17,
+          "mean_error_px": 0.9446296870569192,
+          "median_error_px": 1.037043815451602,
+          "worst_error_px": 1.8428549462967845,
+          "pass_rate@5.0px": 1.0,
+          "pass_rate@4.0px": 1.0,
+          "pass_rate@2.0px": 1.0,
+          "pass_rate@1.0px": 0.47058823529411764,
+          "pass_rate@0.5px": 0.29411764705882354
+        },
+        "1.00-1.05": {
+          "n": 31,
+          "mean_error_px": 30.891799112331213,
+          "median_error_px": 1.1278010868891315,
+          "worst_error_px": 856.7516191178696,
+          "pass_rate@5.0px": 0.8387096774193549,
+          "pass_rate@4.0px": 0.8387096774193549,
+          "pass_rate@2.0px": 0.6451612903225806,
+          "pass_rate@1.0px": 0.4838709677419355,
+          "pass_rate@0.5px": 0.22580645161290322
+        },
+        "1.05-1.10": {
+          "n": 24,
+          "mean_error_px": 16.10849905720711,
+          "median_error_px": 1.007748488404424,
+          "worst_error_px": 347.16583969510674,
+          "pass_rate@5.0px": 0.875,
+          "pass_rate@4.0px": 0.875,
+          "pass_rate@2.0px": 0.7916666666666666,
+          "pass_rate@1.0px": 0.5,
+          "pass_rate@0.5px": 0.16666666666666666
+        }
+      }
+    },
+    "by_rotation": {
+      "note": "geometric_profile=drift only (0deg elsewhere); absolute reference rotation",
+      "buckets": {
+        "0.0-0.5 deg": {
+          "n": 23,
+          "mean_error_px": 1.41365203099425,
+          "median_error_px": 0.7750985030094774,
+          "worst_error_px": 7.420458815381783,
+          "pass_rate@5.0px": 0.9565217391304348,
+          "pass_rate@4.0px": 0.9565217391304348,
+          "pass_rate@2.0px": 0.782608695652174,
+          "pass_rate@1.0px": 0.5217391304347826,
+          "pass_rate@0.5px": 0.17391304347826086
+        },
+        "0.5-1.0 deg": {
+          "n": 20,
+          "mean_error_px": 1.818882873452986,
+          "median_error_px": 0.8731091038982495,
+          "worst_error_px": 8.431314645000402,
+          "pass_rate@5.0px": 0.9,
+          "pass_rate@4.0px": 0.9,
+          "pass_rate@2.0px": 0.75,
+          "pass_rate@1.0px": 0.55,
+          "pass_rate@0.5px": 0.3
+        },
+        "1.0-1.5 deg": {
+          "n": 32,
+          "mean_error_px": 40.25421372860915,
+          "median_error_px": 1.1354268521073339,
+          "worst_error_px": 856.7516191178696,
+          "pass_rate@5.0px": 0.875,
+          "pass_rate@4.0px": 0.84375,
+          "pass_rate@2.0px": 0.78125,
+          "pass_rate@1.0px": 0.46875,
+          "pass_rate@0.5px": 0.21875
+        },
+        "1.5-2.0 deg": {
+          "n": 25,
+          "mean_error_px": 1.598258422700313,
+          "median_error_px": 1.037043815451602,
+          "worst_error_px": 9.751607482128248,
+          "pass_rate@5.0px": 0.96,
+          "pass_rate@4.0px": 0.96,
+          "pass_rate@2.0px": 0.72,
+          "pass_rate@1.0px": 0.48,
+          "pass_rate@0.5px": 0.36
+        }
+      }
+    },
+    "by_barrel_distortion": {
+      "note": "all conditions; magnitude of the radial lens warp applied to the search image (non-zero under imaging_noise_profile=harsh only). Displacement grows with r^2, so this is the same effect the target-position slice measures indirectly",
+      "buckets": {
+        "none (k < 0.01)": {
+          "n": 116,
+          "mean_error_px": 0.8339281769883622,
+          "median_error_px": 0.6186542497714855,
+          "worst_error_px": 2.897460513859002,
+          "pass_rate@5.0px": 1.0,
+          "pass_rate@4.0px": 1.0,
+          "pass_rate@2.0px": 0.9396551724137931,
+          "pass_rate@1.0px": 0.6896551724137931,
+          "pass_rate@0.5px": 0.3448275862068966
+        },
+        "mild (0.01-0.03)": {
+          "n": 18,
+          "mean_error_px": 40.54874413585493,
+          "median_error_px": 2.1815285162332816,
+          "worst_error_px": 347.16583969510674,
+          "pass_rate@5.0px": 0.7777777777777778,
+          "pass_rate@4.0px": 0.7777777777777778,
+          "pass_rate@2.0px": 0.4444444444444444,
+          "pass_rate@1.0px": 0.16666666666666666,
+          "pass_rate@0.5px": 0.1111111111111111
+        },
+        "moderate (0.03-0.06)": {
+          "n": 32,
+          "mean_error_px": 29.794074933421786,
+          "median_error_px": 1.3030401356510368,
+          "worst_error_px": 820.8647294628032,
+          "pass_rate@5.0px": 0.75,
+          "pass_rate@4.0px": 0.6875,
+          "pass_rate@2.0px": 0.5625,
+          "pass_rate@1.0px": 0.375,
+          "pass_rate@0.5px": 0.1875
+        },
+        "severe (>= 0.06)": {
+          "n": 34,
+          "mean_error_px": 52.6892045289937,
+          "median_error_px": 2.31019759769437,
+          "worst_error_px": 856.7652390592311,
+          "pass_rate@5.0px": 0.8823529411764706,
+          "pass_rate@4.0px": 0.8529411764705882,
+          "pass_rate@2.0px": 0.47058823529411764,
+          "pass_rate@1.0px": 0.17647058823529413,
+          "pass_rate@0.5px": 0.11764705882352941
+        }
+      }
+    }
   },
   "failure_case": {
-    "error_px": 16.536170519292327,
-    "confidence": 0.4812212288379669,
+    "error_px": 856.7652390592311,
+    "confidence": 0.1223255842924118,
     "condition": {
       "imaging_noise_profile": "harsh",
-      "geometric_profile": "drift"
+      "geometric_profile": "normal"
     },
     "image": "failure_case.png",
-    "root_cause": "Worst case (16.5px error) occurred under imaging_noise_profile=harsh, geometric_profile=drift, with model confidence=0.481. The model was still relatively confident despite the large error, suggesting a genuine structural look-alike (repeated-pattern ambiguity) rather than an easily-flagged low-confidence guess."
+    "border_distance_px": 69.80000305175781,
+    "barrel_distortion_k": -0.07418210804462433,
+    "root_cause": "Worst case (856.8px error) occurred under imaging_noise_profile=harsh, geometric_profile=normal, with model confidence=0.122. The target sat 70px from the nearest search-image border, under a barrel-distortion coefficient of k=-0.074. Those are the two settings that carry the error in this run: mean error runs 0.60px for targets in the 'centre (>=300px)' band against 45.05px for 'edge (<150px)', and 0.83px at 'none (k < 0.01)' barrel distortion against 52.69px at 'severe (>= 0.06)'. Those two axes are not independent: barrel distortion displaces a feature radially by an amount growing with r^2, so it is near-zero at the image centre and largest exactly where the edge-position bucket's targets sit. Ablating the barrel term alone (holding the canvases, crops, labels and every other noise source fixed) removes most of the harsh-profile error, which makes it the dominant driver here rather than repeated-pattern ambiguity. Note that ground truth is computed from pre-distortion canvas geometry and is never corrected for this warp, so under harsh conditions these numbers conflate localization error with label displacement; see the limitation note in README section 12."
   }
 }

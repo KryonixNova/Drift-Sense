@@ -22,6 +22,54 @@ When a wafer inspection tool's stage drifts off its intended coordinates, it
 needs to relocate a known reference feature inside a wider search image to
 recover its true position — fast, and without a human in the loop.
 
+Given a 1000x1000 reference image at 100x magnification and a 1000x1000
+search image at 10x covering the same region, this project returns the
+`(x, y)` centre of the reference inside the search image — on a repetitive
+DRAM lattice where a naive best-match search finds many equally good
+answers and picks the wrong one.
+
+## Results
+
+Measured on **200 independently generated pairs** — one fresh canvas per
+pair — against the shipped `production_v3` checkpoint:
+
+| | Median error | Pass @ 5px | Runtime / pair |
+|---|---|---|---|
+| Normal acquisition noise | **0.63–0.77 px** | **100%** | ~20 ms |
+| Harsh acquisition noise | 1.35–1.37 px | 84% | ~20 ms |
+| **Pooled (n=200)** | **0.99 px** | — | ~20 ms |
+
+Runtime is a median over single pairs on an RTX 5060 Ti, Python 3.12.13,
+timed with `time.perf_counter()` around the model call.
+
+The error distribution is bimodal rather than spread: most pairs land
+sub-pixel, while 5 of 200 (2.5%) miss by more than 50px, because on a
+periodic lattice a wrong answer is a *different cell* — hundreds of pixels
+away, not a few. Excluding those five, the mean over the remaining 195 is
+1.76px. Read the median and pass rates, not the pooled mean.
+
+Nearly all of the harsh-profile error traces to one generation setting:
+barrel distortion of the search image. With no barrel warp the model clears
+5px on **116 of 116** pairs. Full per-condition and stratified tables, the
+failure case, and an important caveat about how ground truth interacts with
+that warp are in
+[`submission/results/validation_report.md`](submission/results/validation_report.md)
+and §3/§12 of [`submission/README.md`](submission/README.md).
+
+## Quick start
+
+```bash
+cd submission
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# localize one pair (prints "x,y,confidence")
+python localize.py --reference ref.png --search search.png
+```
+
+Full setup notes, every command, the coordinate convention and the I/O
+contract are in [`submission/README.md`](submission/README.md).
+
 ## Where the submission lives
 
 **[`submission/`](submission/)** is the graded deliverable, laid out to
@@ -40,6 +88,8 @@ setup instructions, and results table.
 
 ```
 Drift-Sense/
+├── problem statement.pdf      The Applied Materials problem statement this
+│                               repository answers.
 ├── submission/                The graded deliverable (see above) — generator,
 │                               localizer, tests, results, references, configs.
 └── Team_fab_genr/              A separate, independently-developed DRAM-SEM

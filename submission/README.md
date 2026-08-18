@@ -133,23 +133,59 @@ in [`references/README.md`](references/README.md).
 ## 3. Results at a glance
 
 Validated against `model/production_v3/best.pt` across four
-noise x geometry conditions (200 samples pooled — see
-[`results/validation_report.md`](results/validation_report.md) for the
-full breakdown and reproduction steps):
+noise x geometry conditions, on **200 independently generated pairs** —
+one fresh canvas per pair, so no two share a pattern layout, search image
+or noise draw (see [`results/validation_report.md`](results/validation_report.md)
+for the full breakdown and reproduction steps):
 
-| Condition | Mean error (px) | Pass @ 5px | Pass @ 1px | Median runtime (ms) |
-|---|---|---|---|---|
-| Normal noise, normal geometry | 0.64 | 100.0% | 86.0% | 21.9 |
-| Harsh noise, normal geometry | 4.32 | 64.0% | 22.0% | 21.9 |
-| Normal noise, drift geometry | 0.67 | 100.0% | 86.0% | 22.0 |
-| Harsh noise, drift geometry | 4.28 | 64.0% | 22.0% | 22.0 |
-| **Pooled (n=200)** | **2.47** | — | — | — |
+| Condition | Median error (px) | Mean error (px) | Pass @ 5px | Pass @ 1px | Pass @ 0.5px | Median runtime (ms) |
+|---|---|---|---|---|---|---|
+| Normal noise, normal geometry | 0.77 | 0.90 | 100.0% | 66.0% | 32.0% | 20.1 |
+| Harsh noise, normal geometry | 1.37 | 42.58 | 84.0% | 36.0% | 20.0% | 20.1 |
+| Normal noise, drift geometry | 0.63 | 0.86 | 100.0% | 64.0% | 28.0% | 20.1 |
+| Harsh noise, drift geometry | 1.35 | 27.08 | 84.0% | 36.0% | 24.0% | 20.2 |
+| **Pooled (n=200)** | **0.99** | 17.86 | — | — | — | — |
 
 *"Normal" vs. "harsh" noise controls acquisition-noise severity (dose,
 astigmatism, charging, speckle, etc.); "normal" vs. "drift" geometry
 controls whether the reference crop also carries scale jitter (9:1–11:1)
 and rotation (±2°) on top of the nominal 10:1 relationship — see
-[§8](#8-generating-a-dataset).*
+[§8](#8-generating-a-dataset). `Pass @ 0.5px` is the sub-pixel column:
+predictions landing within half a search-image pixel of truth.*
+
+**Read the median, not the mean.** The error distribution is strongly
+bimodal. Most pairs land sub-pixel; **5 of 200 (2.5%)** miss by more than
+50px, because on a periodic lattice a wrong answer is a *different cell*,
+which is hundreds of pixels away rather than a few. Excluding those five,
+the mean over the remaining 195 pairs is **1.76px**. A mean over the
+mixture describes neither group, which is why the median and the pass-rate
+columns are the summaries to compare.
+
+**Where the error actually comes from.** Re-slicing those same 200 runs by
+generation axis shows the driver is neither scale nor rotation, but
+**barrel distortion** of the search image — a radial lens warp present only
+in the harsh profile:
+
+| Barrel distortion magnitude | n | Median error (px) | Pass @ 5px |
+|---|---|---|---|
+| None (<0.01) | 116 | 0.62 | 100.0% |
+| Mild (0.01–0.03) | 18 | 2.18 | 77.8% |
+| Moderate (0.03–0.06) | 32 | 1.30 | 75.0% |
+| Severe (≥0.06) | 34 | 2.31 | 88.2% |
+
+With no barrel warp the model is perfect at the 5px threshold across all
+116 pairs; any non-zero warp costs 12–25 points of pass rate. Because
+barrel displacement grows with r² — zero at the image centre, largest at
+the borders — the same effect shows up indirectly as a target-position
+gradient (pass@5px 100% at the centre, 97.4% mid, 81.6% at the edge).
+Scale and rotation show no comparable trend once the tail is accounted for:
+every one of their buckets has a median between 0.78 and 1.14px.
+
+An ablation isolating the barrel term (holding canvases, crops, labels and
+every other noise source fixed) removes most of the harsh-profile error —
+so this, not repeated-pattern ambiguity, is the dominant failure driver
+here. See [§12](#12-about-the-shipped-checkpoint) for the caveat that comes
+with it.
 
 <div align="center">
 <table>
@@ -180,7 +216,8 @@ submission/
 │   ├── pipeline.py, sem_imaging.py, presets.py, structural_defects.py
 │   ├── patterns/                 DRAM / FinFET / zone-routing pattern generators
 │   └── localizer/                 the model: encoder, correlation, context head, decode, ...
-├── scripts/                     train, predict, validate, calibrate, ablate
+├── scripts/                     train, predict, validate, calibrate, ablate,
+│                               build_sample_dataset
 ├── model/                       shipped checkpoint(s)
 │   └── production_v3/             best.pt — the default model (see §12)
 ├── tests/                       pytest suite
@@ -245,6 +282,7 @@ follow in the sections linked from the right-hand column.
 | Generate a dataset | `python generate_dataset.py --split test --num-samples 30 --output-dir ./output` | [§8](#8-generating-a-dataset) |
 | Batch-predict a manifest | `python localize.py --manifest output/manifest.csv --output predictions.csv` | [§9](#9-batch-localization) |
 | Run the validation report | `python scripts/validation_report.py --n-per-condition 50 --out-dir results` | [§10](#10-validation-report) |
+| Rebuild the sample dataset | `python scripts/build_sample_dataset.py --out-dir results/sample_dataset` | [§10](#10-validation-report) |
 | Train a model | `python scripts/train.py --run-name my_run --max-steps 40000` | [§11](#11-training-your-own-model) |
 | Run tests | `python -m pytest tests/ -q -m "not slow"` | [§5](#5-setup) |
 
@@ -296,25 +334,58 @@ NMS + centre-tiebreak logic (`src/localizer/decode.py`) selects the
 candidate closest to the search image's centre, matching the spec's
 tie-break rule.
 
+In practice the tie-break is a correctness guarantee that rarely activates:
+instrumenting the decoder across the 200-pair validation run shows it
+changes the selected candidate on **0 of 200** pairs, because the context
+head usually resolves the lattice ambiguity before decode ever sees a tie.
+It is the defined behaviour for the case where it doesn't — not the
+mechanism the reported accuracy rests on. See
+[§12](#12-about-the-shipped-checkpoint).
+
 ## 8. Generating a dataset
 
 ```bash
 python generate_dataset.py --split test --num-samples 30 --output-dir ./output
 ```
 
-Writes `output/reference/*.png` (1000x1000, upscaled from the model's
-native 100x100 representation), `output/search/*.png` (1000x1000), and
-`output/manifest.csv` (ground truth and generation metadata per pair —
-random seed, transformations, noise settings, scale, rotation), drawing
-from the same on-the-fly generator (`src/localizer/data.py`) that training
-itself uses — so a dataset written here is representative of what the
-model was actually trained/evaluated on.
+Writes `output/reference/*.png`, `output/search/*.png` and
+`output/manifest.csv`, drawing from the same on-the-fly generator
+(`src/localizer/data.py`) that training itself uses — so a dataset written
+here is representative of what the model was actually trained/evaluated on.
+
+Both images are 1000x1000 px, and each is a genuine capture at its own
+magnification: the search image covers 10000x10000 nm at 10 nm/px (10x),
+and the reference covers 1000x1000 nm at 1 nm/px (100x). The reference is
+written at that native resolution — it is *not* the model's 10x-downsampled
+100x100 working view scaled back up, so it carries the full detail a 100x
+column resolves, matching what an evaluator's reference images will
+contain. Where the reference also carries scale/rotation jitter
+(`--geometric-profile drift`), that jitter is applied at native resolution,
+in the same order a real acquisition would impose it, rather than after
+downsampling.
 
 | Flag | Values | Effect |
 |---|---|---|
 | `--split` | `train` / `val` / `test` | picks a canvas-disjoint seed range, matching `LocalizerConfig` |
 | `--imaging-noise-profile` | `normal` / `harsh` | acquisition-noise severity |
 | `--geometric-profile` | `normal` / `drift` | adds ~9:1–11:1 scale jitter and ±2° rotation to the reference crop |
+
+`manifest.csv` carries 43 columns per pair — everything needed to
+reproduce that pair exactly and to slice results by the settings that
+produced it:
+
+| Group | Columns |
+|---|---|
+| Identity & paths | `id`, `architecture`, `reference_path`, `search_path` |
+| Ground truth | `gt_x`, `gt_y`, `crop_x0_fine`, `crop_y0_fine` |
+| Seed & profiles | `canvas_seed`, `crop_index`, `jitter_profile`, `imaging_noise_profile`, `geometric_profile` |
+| Transformations | `scale_ratio`, `rotation_deg` |
+| Pattern layout | `mats_m`, `mats_n`, `strip_width_nm`, `linewidth_bias_nm`, `corner_rounding_px` |
+| Search-side noise | `search_` + `spot_size_nm`, `dose`, `shear_amplitude_px`, `drift_jitter_px`, `detector_noise_sigma`, `astigmatism_ratio`, `vignette_strength`, `barrel_distortion_k`, `charging_streak_prob`, `charging_streak_intensity`, `speckle_sigma`, `salt_pepper_prob` |
+| Reference-side noise | `ref_` + the same fields, minus `shear_amplitude_px` (raster shear applies to the search raster only) |
+
+The noise columns are the *concrete values sampled for that pair*, not just
+the profile name — `search_dose=153.52`, not `harsh`.
 
 ## 9. Batch localization
 
@@ -340,20 +411,42 @@ python scripts/validation_report.py \
 
 Runs the model across all four `{imaging_noise_profile} x
 {geometric_profile}` combinations and writes `results/validation_report.md`
-(human-readable per-condition table: mean/median/worst Euclidean error,
-pass rate @5/4/2/1px, median runtime), `results/validation_report.json`
+(human-readable tables: mean/median/worst Euclidean error, pass rate
+@5/4/2/1/0.5px, median runtime), `results/validation_report.json`
 (the same data, machine-readable), and `results/failure_case.png` (the
 worst prediction across all conditions, with true/predicted centres marked
 and a root-cause note in the report). Already run against `production_v3`
-and committed — pooled mean error 2.47px over 200 samples (see
-[§3](#3-results-at-a-glance)).
+and committed — pooled median error 0.99px over 200 independently
+generated pairs (see [§3](#3-results-at-a-glance)).
+
+Each pair comes from its own freshly generated canvas: the script evaluates
+with `crops_per_canvas=1` rather than `LocalizerConfig`'s training default
+of 100, so `--n-per-condition 50` means 50 distinct pattern layouts, search
+images and noise draws — not one canvas re-cropped 50 times.
+
+Alongside the noise x geometry matrix, the report re-slices the same runs
+along the axes the spec asks for separately — **target position** (distance
+to the nearest search-image border), **scale ratio** (the 9:1–11:1 sweep),
+**rotation** (0–2°) and **barrel distortion** — so a weakness on any one of
+them can't hide inside a pooled average. The barrel slice is where the real
+signal is; see [§3](#3-results-at-a-glance).
 
 `results/sample_dataset/` is a committed, concrete example of the full
 generate → predict pipeline: 32 pairs (8 each across all four noise x
-geometry conditions), generated via `generate_dataset.py` and run through
-`localize.py --manifest`. `results/sample_dataset/predictions.csv` combines
-every generation column with the model's predictions for the same 32 rows
-(mean error 2.00px, pass@5px 0.906 on this specific sample).
+geometry conditions), rebuildable end to end with
+
+```bash
+python scripts/build_sample_dataset.py --out-dir results/sample_dataset
+python localize.py --manifest results/sample_dataset/manifest.csv \
+    --output results/sample_dataset/predictions.csv
+```
+
+`build_sample_dataset.py` drives the real `generate_dataset.py` once per
+condition from a distinct seed block, then merges the four runs into one
+flat directory with contiguous ids and repo-relative paths.
+`results/sample_dataset/predictions.csv` combines every generation column
+with the model's predictions for the same 32 rows (mean error 1.90px,
+median 0.98px, pass@5px 0.906 on this specific sample).
 
 ## 11. Training your own model
 
@@ -401,9 +494,44 @@ training lineage: an original 40000-step run, fine-tuned under
 `--geometric-profile drift` on top — so the final weights are trained under
 both robustness axes together. `hard_negative_radius_cells=24` is a real,
 validated result from a 4-way radius sweep (6/12/24/48), not a guess.
-Consistently strong across every condition in
-`scripts/validation_report.py`'s noise x geometry matrix (pooled mean error
-2.47px — full per-condition breakdown in [§3](#3-results-at-a-glance)).
+Sub-pixel across every fixed-geometry condition in
+`scripts/validation_report.py`'s noise x geometry matrix (pooled median
+error 0.99px — full per-condition breakdown in
+[§3](#3-results-at-a-glance)).
+
+**Known limitation — barrel distortion and ground truth.** As
+[§3](#3-results-at-a-glance) shows, essentially all of the harsh-profile
+error is attributable to barrel distortion of the search image. There is a
+measurement caveat behind that number which is worth stating plainly:
+
+`src/localizer/data.py` derives ground truth from the *pre-distortion*
+canvas geometry (`gt_x = x0 / SCALE_FACTOR + half`), while
+`sem_imaging.image_search()` applies `apply_barrel_distortion()` to the
+search image afterwards, with no corresponding correction to the label. A
+radial warp genuinely moves the target within the image, so under
+`--imaging-noise-profile harsh` the recorded coordinates and the imaged
+feature location disagree by an amount that grows with r². The harsh-column
+numbers therefore **conflate localization error with label displacement**,
+and should be read as a lower bound on the model's true accuracy rather
+than a clean measurement of it. The `none (k < 0.01)` row of the barrel
+table — 116 pairs, 0.62px median, 100% pass@5px — is the cleanest available
+read on localization quality by itself.
+
+What is *not* established is how that error splits between "the label no
+longer matches the image" and "the model cannot compensate for a randomized
+radial warp". Both are plausible, and the evidence here does not separate
+them: an ablation removing the search image's raster shear (a geometric
+transform the model *was* trained under, also uncorrected in the label)
+makes accuracy worse rather than better, which shows the network can absorb
+a systematic warp it has seen — so the barrel result is not simply label
+staleness. Correcting ground truth through the same warp, and re-training
+on the corrected labels, is the clear next step and would settle it.
+
+An earlier version of this section attributed the target-position gradient
+to `decode()`'s centre-tiebreak rule. That explanation is wrong and has
+been removed: instrumenting the decoder shows the tie-break changes the
+selected candidate on **0 of 200** validation pairs, so it cannot account
+for any of the observed error.
 
 ## 13. Configuration
 

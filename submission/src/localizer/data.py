@@ -127,31 +127,56 @@ def generate_canvas_bundle(canvas_seed: int, jitter_profile: str = "normal",
          dram_mod.POSITION_JITTER_DIST) = saved
 
     fine = zone["canvas"]
+    # Drawn into a dict first, rather than inline in the image_search() call,
+    # so the sampled values can be reported per-pair in the manifest. Dict
+    # literals evaluate in source order, so the rng draw sequence -- and
+    # therefore every generated canvas -- is byte-identical to the inline form.
+    search_noise_params = {
+        "spot_size_nm": float(rng.uniform(*noise["spot_size_nm"])),
+        "dose": float(rng.uniform(*noise["dose"])),
+        "shear_amplitude_px": float(rng.uniform(*noise["shear_amplitude_px"])),
+        "drift_jitter_px": float(rng.uniform(*noise["drift_jitter_px"])),
+        "detector_noise_sigma": float(rng.uniform(*noise["detector_noise_sigma"])),
+        "astigmatism_ratio": float(rng.uniform(*noise["astigmatism_ratio"])),
+        "vignette_strength": float(rng.uniform(*noise["vignette_strength"])),
+        "barrel_distortion_k": float(rng.uniform(*noise["barrel_distortion_k"])),
+        "charging_streak_prob": float(rng.uniform(*noise["charging_streak_prob"])),
+        "charging_streak_intensity": float(rng.uniform(*noise["charging_streak_intensity"])),
+        "speckle_sigma": float(rng.uniform(*noise["speckle_sigma"])),
+        "salt_pepper_prob": float(rng.uniform(*noise["salt_pepper_prob"])),
+    }
     search = sem_imaging.image_search(
         fine,
         pixel_size_ref_nm=PIXEL_SIZE_REF_NM,
         pixel_size_search_nm=PIXEL_SIZE_SEARCH_NM,
-        spot_size_nm=float(rng.uniform(*noise["spot_size_nm"])),
-        dose=float(rng.uniform(*noise["dose"])),
         rng=rng,
-        shear_amplitude_px=float(rng.uniform(*noise["shear_amplitude_px"])),
-        drift_jitter_px=float(rng.uniform(*noise["drift_jitter_px"])),
-        detector_noise_sigma=float(rng.uniform(*noise["detector_noise_sigma"])),
-        astigmatism_ratio=float(rng.uniform(*noise["astigmatism_ratio"])),
-        vignette_strength=float(rng.uniform(*noise["vignette_strength"])),
-        barrel_distortion_k=float(rng.uniform(*noise["barrel_distortion_k"])),
-        charging_streak_prob=float(rng.uniform(*noise["charging_streak_prob"])),
-        charging_streak_intensity=float(rng.uniform(*noise["charging_streak_intensity"])),
-        speckle_sigma=float(rng.uniform(*noise["speckle_sigma"])),
-        salt_pepper_prob=float(rng.uniform(*noise["salt_pepper_prob"])),
+        **search_noise_params,
     )
     return {"fine_canvas": fine, "search_img": search,
-            "strip_rects": zone["strip_rects"]}
+            "strip_rects": zone["strip_rects"],
+            "search_noise_params": search_noise_params,
+            "pattern_params": {
+                "mats_m": m, "mats_n": n, "strip_width_nm": strip_w,
+                "linewidth_bias_nm": linewidth_bias_nm,
+                "corner_rounding_px": corner_rounding_px,
+            }}
 
 
 def sample_pair(bundle: dict, canvas_seed: int, crop_index: int,
                  imaging_noise_profile: str = "normal",
-                 geometric_profile: str = "normal") -> dict:
+                 geometric_profile: str = "normal",
+                 want_hires_reference: bool = False) -> dict:
+    """Cut one reference crop out of ``bundle``'s fine canvas and image it.
+
+    ``want_hires_reference`` additionally returns the reference at its native
+    100x-magnification resolution (1000x1000 px, 1 nm/px) under
+    ``reference_img_hires_u8`` -- the form generate_dataset.py persists to
+    PNG, and the form a real tool would hand the localizer. It is off by
+    default because the training path only ever consumes the 10x-downsampled
+    100x100 view, and warping a 1000x1000 array per crop is pure overhead
+    there. Enabling it draws no random numbers, so the returned reference,
+    ground truth and jitter values are identical either way.
+    """
     noise = IMAGING_NOISE_PROFILES[imaging_noise_profile]["reference"]
     rng = np.random.default_rng(canvas_seed * 1_000_003 + crop_index)
     max_off = FINE_CANVAS_SIZE_PX - REFERENCE_SIZE_PX
@@ -160,21 +185,26 @@ def sample_pair(bundle: dict, canvas_seed: int, crop_index: int,
 
     crop = bundle["fine_canvas"][y0:y0 + REFERENCE_SIZE_PX,
                                  x0:x0 + REFERENCE_SIZE_PX]
+    # Hoisted into a dict for per-pair manifest reporting; see the equivalent
+    # note in generate_canvas_bundle() on why this preserves the rng sequence.
+    reference_noise_params = {
+        "spot_size_nm": float(rng.uniform(*noise["spot_size_nm"])),
+        "dose": float(rng.uniform(*noise["dose"])),
+        "detector_noise_sigma": float(rng.uniform(*noise["detector_noise_sigma"])),
+        "drift_jitter_px": float(rng.uniform(*noise["drift_jitter_px"])),
+        "astigmatism_ratio": float(rng.uniform(*noise["astigmatism_ratio"])),
+        "vignette_strength": float(rng.uniform(*noise["vignette_strength"])),
+        "barrel_distortion_k": float(rng.uniform(*noise["barrel_distortion_k"])),
+        "charging_streak_prob": float(rng.uniform(*noise["charging_streak_prob"])),
+        "charging_streak_intensity": float(rng.uniform(*noise["charging_streak_intensity"])),
+        "speckle_sigma": float(rng.uniform(*noise["speckle_sigma"])),
+        "salt_pepper_prob": float(rng.uniform(*noise["salt_pepper_prob"])),
+    }
     ref_full = sem_imaging.image_reference(
         crop,
         pixel_size_nm=PIXEL_SIZE_REF_NM,
-        spot_size_nm=float(rng.uniform(*noise["spot_size_nm"])),
-        dose=float(rng.uniform(*noise["dose"])),
         rng=rng,
-        detector_noise_sigma=float(rng.uniform(*noise["detector_noise_sigma"])),
-        drift_jitter_px=float(rng.uniform(*noise["drift_jitter_px"])),
-        astigmatism_ratio=float(rng.uniform(*noise["astigmatism_ratio"])),
-        vignette_strength=float(rng.uniform(*noise["vignette_strength"])),
-        barrel_distortion_k=float(rng.uniform(*noise["barrel_distortion_k"])),
-        charging_streak_prob=float(rng.uniform(*noise["charging_streak_prob"])),
-        charging_streak_intensity=float(rng.uniform(*noise["charging_streak_intensity"])),
-        speckle_sigma=float(rng.uniform(*noise["speckle_sigma"])),
-        salt_pepper_prob=float(rng.uniform(*noise["salt_pepper_prob"])),
+        **reference_noise_params,
     )
     ref_ds = sem_imaging.downsample_area_average(ref_full, SCALE_FACTOR)
 
@@ -184,16 +214,26 @@ def sample_pair(bundle: dict, canvas_seed: int, crop_index: int,
     ref_ds = _apply_geometric_jitter(ref_ds, scale_ratio, rotation_deg)
 
     half = REFERENCE_SIZE_PX / SCALE_FACTOR / 2.0
-    return {
+    out = {
         "reference_img": _standardize(ref_ds),
         "reference_img_u8": ref_ds,
         "search_img": _standardize(bundle["search_img"]),
         "gt_x": x0 / SCALE_FACTOR + half,
         "gt_y": y0 / SCALE_FACTOR + half,
         "canvas_seed": canvas_seed,
+        "crop_x0_fine": x0,
+        "crop_y0_fine": y0,
         "scale_ratio": scale_ratio,
         "rotation_deg": rotation_deg,
+        "reference_noise_params": reference_noise_params,
     }
+    if want_hires_reference:
+        # Same magnification/rotation error the model's 100x100 view carries,
+        # applied at native resolution rather than after the 10x downsample --
+        # which is the order a real acquisition imposes it in.
+        out["reference_img_hires_u8"] = _apply_geometric_jitter(
+            ref_full, scale_ratio, rotation_deg)
+    return out
 
 
 _SHUFFLE_BUFFER_SEED_BASE = 0x5eed
@@ -258,6 +298,17 @@ class LocalizerDataset(IterableDataset):
                     "gt_x": torch.tensor(s["gt_x"], dtype=torch.float32),
                     "gt_y": torch.tensor(s["gt_y"], dtype=torch.float32),
                     "canvas_seed": torch.tensor(seed, dtype=torch.long),
+                    # Carried through for per-condition stratification in
+                    # scripts/validation_report.py. Training reads batches by
+                    # key, so these are inert there.
+                    "scale_ratio": torch.tensor(s["scale_ratio"], dtype=torch.float32),
+                    "rotation_deg": torch.tensor(s["rotation_deg"], dtype=torch.float32),
+                    # Radial lens warp applied to the search image. Displacement
+                    # grows with r^2, so this is the axis that explains error at
+                    # edge target positions -- see the report's failure analysis.
+                    "barrel_distortion_k": torch.tensor(
+                        bundle["search_noise_params"]["barrel_distortion_k"],
+                        dtype=torch.float32),
                 }
 
     def __iter__(self):
